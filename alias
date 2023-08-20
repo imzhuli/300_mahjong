@@ -1,0 +1,3 @@
+alias d="./scripts/build-debug.sh"
+alias r="./scripts/build-release.sh"
+alias m="./scripts/make.sh"
