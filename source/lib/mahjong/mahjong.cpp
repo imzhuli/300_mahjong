@@ -1,6 +1,7 @@
 #include <mahjong/mahjong.hpp>
 #include <xel/Util/Command.hpp>
 #include <cstring>
+#include <iostream>
 
 namespace xmj {
 
@@ -58,70 +59,57 @@ namespace xmj {
         --Pool[Dazi[2]];
     }
 
-    X_STATIC_INLINE bool operator == (const xTileSelection & lhs, const xTileSelection & rhs) {
-        return lhs.AppliedDaziList == rhs.AppliedDaziList;
-    }
-
-    X_STATIC_INLINE bool operator < (const xTileSelection & lhs, const xTileSelection & rhs) {
-        return lhs.AppliedDaziList < rhs.AppliedDaziList;
-    }
-
     vector<xTileSelection> FindPatterns(const xTilePool & StartPool)
     {
         assert(!StartPool[0]);
-        auto KeStates = array<vector<xTileSelection>, 5>{ vector<xTileSelection>{ {StartPool, {}} } };
-        for (size_t Ke = 1; Ke <= 4; ++Ke) {
+        size_t Total = 0;
+        for (auto Count : StartPool) {
+            assert(Count <= 4);
+            Total += Count;
+        }
+        Total /= 3;
+        auto KeStates = vector<vector<xTileSelection>>{ vector<xTileSelection>{ {StartPool, {}} } };
+        KeStates.resize(Total + 1);
+        for (size_t Ke = 1; Ke < KeStates.size(); ++Ke) {
             const auto & PrioStateList = KeStates[Ke - 1];
             auto & StateList = KeStates[Ke];
             auto TempStateList = vector<xTileSelection>();
+
             for( auto & PrioState : PrioStateList) {
-                auto Choices = FindKe(PrioState.Pool);
+                size_t Start = PrioState.AppliedDaziList.size() ? (PrioState.AppliedDaziList.back()[0] + 1) : 1;
+                auto Choices = FindKe(PrioState.Pool, Start);
                 for (auto & Choice: Choices) {
                     auto Pool = PrioState.Pool; // make copy;
                     ApplyDazi(Pool, Choice);
                     auto AppliedDaziList = PrioState.AppliedDaziList; // make copy;
                     AppliedDaziList.push_back(Choice);
-                    sort(AppliedDaziList.begin(), AppliedDaziList.end());
-                    TempStateList.push_back({ Pool, AppliedDaziList });
+                    StateList.push_back({ Pool, std::move(AppliedDaziList) });
                 }
-            }
-            sort(TempStateList.begin(), TempStateList.end());
-            size_t Src = 0;
-            size_t End = TempStateList.size();
-            if (End) {
-                while(true) {
-                    StateList.push_back(TempStateList[Src]);
-                    do {
-                        ++Src;
-                        if (Src >= End) {
-                            goto EndOfUnify;
-                        }
-                    } while(StateList.back() == TempStateList[Src]);
-                }
-                EndOfUnify:Pass();
             }
         }
 
         auto TempFinalStates = vector<xTileSelection>();
-        auto FinalStates = vector<xTileSelection>();
-        for (size_t Ke = 0; Ke <= 4; ++Ke) {
+        // auto FinalStates = vector<xTileSelection>();
+        for (size_t Ke = 0; Ke <= Total; ++Ke) {
             auto & KeStateList = KeStates[Ke];
             for(auto & KeState : KeStateList) {
                 // apply all
                 TempFinalStates.push_back(KeState);
-                auto LianStates = array<vector<xTileSelection>, 5>{ vector<xTileSelection>{ KeState }};
-                for (size_t Lian = 1; Lian <= 4 - Ke; ++Lian) {
+                auto LianStates = vector<vector<xTileSelection>>{ vector<xTileSelection>{ KeState }};
+                LianStates.resize(Total - Ke + 1);
+                for (size_t Lian = 1; Lian < LianStates.size(); ++Lian) {
                     const auto & PrioStateList = LianStates[Lian - 1];
                     auto & StateList = LianStates[Lian];
                     for (auto & PrioState : PrioStateList) {
-                        auto Choices = FindLian(PrioState.Pool);
+                        size_t Start = PrioState.AppliedDaziList.size() ? (
+                            PrioState.AppliedDaziList.back()[0] == PrioState.AppliedDaziList.back()[1] ? 1 : PrioState.AppliedDaziList.back()[0]) : 1;
+                        auto Choices = FindLian(PrioState.Pool, Start);
                         for (auto & Choice: Choices) {
                             auto Pool = PrioState.Pool; // make a copy;
                             ApplyDazi(Pool, Choice);
                             auto AppliedDaziList = PrioState.AppliedDaziList; // make copy;
                             AppliedDaziList.push_back(Choice);
-                            sort(AppliedDaziList.begin(), AppliedDaziList.end());
-                            StateList.push_back({ Pool, AppliedDaziList });
+                            StateList.push_back({ Pool, std::move(AppliedDaziList) });
                         }
                     }
                     for (auto & LianState : StateList) {
@@ -130,23 +118,7 @@ namespace xmj {
                 }
             }
         }
-        sort(TempFinalStates.begin(), TempFinalStates.end());
-        size_t Src = 0;
-        size_t End = TempFinalStates.size();
-        if (End) {
-            while(true) {
-                FinalStates.push_back(TempFinalStates[Src]);
-                do {
-                    ++Src;
-                    if (Src >= End) {
-                        goto EndOfFinalUnify;
-                    }
-                } while(FinalStates.back() == TempFinalStates[Src]);
-            }
-            EndOfFinalUnify:Pass();
-        }
-
-        return FinalStates;
+        return TempFinalStates;
     }
 
 }

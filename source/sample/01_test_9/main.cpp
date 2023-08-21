@@ -12,9 +12,9 @@ int main(int argc, char * argv[])
 {
     cout << "Mahjong Version: " << xmj::VersionString() << endl;
 
-    xTilePool TestPool = {
+    [[maybe_unused]] xTilePool TestPool = {
         0,
-        4,4,4,4,4,4,4,4,4,
+        0, 3, 4, 2, 0, 3, 0, 0, 2
     };
 
     auto FinalStates = FindPatterns(TestPool);
